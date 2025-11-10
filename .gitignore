@@ -1,0 +1,10 @@
+node_modules/
+dist/
+tsconfig.tsbuildinfo
+.eslintcache
+
+# dotenv environment variable files
+.env
+
+# Finder (MacOS) folder config
+.DS_Store

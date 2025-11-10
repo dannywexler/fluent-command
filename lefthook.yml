@@ -1,0 +1,40 @@
+build:
+  jobs:
+    - &BUILD
+      name: Build
+      run: "{nm}tsdown --log-level error"
+
+lint:
+  jobs:
+    - &LINT
+      name: "Lint "
+      run: "{nm}biome check --error-on-warnings --colors=force --write --staged"
+      stage_fixed: true
+
+test:
+  jobs:
+    - &TEST
+      name: "Test "
+      run: "{nm}vitest run"
+
+all: &ALL
+  piped: true
+  jobs:
+    - *LINT
+    - *BUILD
+    - *TEST
+
+pre-commit: *ALL
+
+templates:
+  nm: './node_modules/.bin/'
+
+output:
+  - summary
+  - success
+  - failure
+  - execution
+  - execution_out
+  - execution_info
+  - skips
+

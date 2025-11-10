@@ -1,0 +1,41 @@
+{
+    "name": "PACKAGE_NAME",
+    "version": "0.1.0",
+    "description": "DESCRIBE PACKAGE",
+    "keywords": [
+        "ADD KEYWORDS"
+    ],
+    "repository": "github:dannywexler/PACKAGE_NAME",
+    "author": "Danny Wexler",
+    "license": "MIT",
+    "type": "module",
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "devDependencies": {
+        "@biomejs/biome": "2.2.6",
+        "lefthook": "^1.13.6",
+        "tsdown": "^0.12.9",
+        "typescript": "^5.9.3",
+        "vite-tsconfig-paths": "^5.1.4",
+        "vitest": "^3.2.4"
+    },
+    "scripts": {
+        "build": "lefthook run build",
+        "lint": "biome check --error-on-warnings --colors=force --write src",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    }
+}
