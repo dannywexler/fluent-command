@@ -1,11 +1,14 @@
 {
-    "name": "PACKAGE_NAME",
+    "name": "fluent-command",
     "version": "0.1.0",
-    "description": "DESCRIBE PACKAGE",
+    "description": "A fluent TypeScript library for creating and running commands",
     "keywords": [
-        "ADD KEYWORDS"
+        "fluent",
+        "command",
+        "exec",
+        "spawn"
     ],
-    "repository": "github:dannywexler/PACKAGE_NAME",
+    "repository": "github:dannywexler/fluent-command",
     "author": "Danny Wexler",
     "license": "MIT",
     "type": "module",
@@ -26,6 +29,7 @@
     ],
     "devDependencies": {
         "@biomejs/biome": "2.2.6",
+        "@types/node": "^24.10.0",
         "lefthook": "^1.13.6",
         "tsdown": "^0.12.9",
         "typescript": "^5.9.3",
@@ -37,5 +41,9 @@
         "lint": "biome check --error-on-warnings --colors=force --write src",
         "test": "vitest run",
         "test:watch": "vitest"
+    },
+    "dependencies": {
+        "neverthrow": "^8.2.0",
+        "pathe": "^2.0.3"
     }
 }

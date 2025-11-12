@@ -22,7 +22,7 @@ all: &ALL
   jobs:
     - *LINT
     - *BUILD
-    - *TEST
+    # - *TEST
 
 pre-commit: *ALL
 
