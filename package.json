@@ -8,7 +8,10 @@
         "exec",
         "spawn"
     ],
-    "repository": "github:dannywexler/fluent-command",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dannywexler/fluent-command.git"
+    },
     "author": "Danny Wexler",
     "license": "MIT",
     "type": "module",
