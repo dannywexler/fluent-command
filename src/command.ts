@@ -4,10 +4,15 @@ import { cwd } from "node:process"
 import { ResultAsync } from "neverthrow"
 import { resolve as resolvePath } from "pathe"
 
-export type FluentCommandSuccess = {
-    cmd: string
-    cmdArgs: Array<string>
+export const SPAWN_MISSING_EXE_CODE = -2
+
+export type SpawnInfo = {
+    executable: string
+    commandArgs: Array<string>
     cwd: string
+}
+
+export type FluentCommandSuccess = SpawnInfo & {
     duration: number
     output: string
     stderr: string
@@ -21,6 +26,8 @@ export type FluentCommandError = FluentCommandSuccess & {
 
 export type OutputHandler = (output: string) => void
 
+export type SpawnHandler = (spawnInfo: SpawnInfo) => void
+
 export class FluentCommand {
     #executable: string
     #commandArgs: Array<string>
@@ -28,14 +35,16 @@ export class FluentCommand {
     #stdoutContents = ""
     #stderrContents = ""
     #outputContents = ""
-    #code: number | undefined = undefined
-    #signal: NodeJS.Signals | undefined = undefined
+    #code: number | null = null
+    #signal: NodeJS.Signals | null = null
     #cwdPath = ""
     #extraCwdPathPieces: Array<string> = []
     #resolvedCwd = ""
+    #spawnHandler: SpawnHandler | undefined
     #stdoutHandler: OutputHandler | undefined
     #stderrHandler: OutputHandler | undefined
     #outputHandler: OutputHandler | undefined
+    #shouldBeSilent = true
 
     constructor(executable: string, ...initialArgs: Array<string>) {
         this.#executable = executable
@@ -46,19 +55,14 @@ export class FluentCommand {
         this.#commandArgs.push(...extraArgs)
     }
 
-    args = (anArg: string, ...extraArgs: Array<string>) => {
-        this.#addArgs(anArg, ...extraArgs)
-        return this
-    }
-
     #addOptionPair = (
         dashes: 1 | 2,
         optionKey: string,
         optionValue?: string | number,
     ) => {
         if (optionKey.length > 0) {
-            const dashesPrefix = "-".repeat(dashes) + optionKey
-            this.#addArgs(dashesPrefix)
+            const dashedOption = "-".repeat(dashes) + optionKey
+            this.#addArgs(dashedOption)
         }
 
         if (typeof optionValue === "string" && optionValue.length > 0) {
@@ -73,8 +77,8 @@ export class FluentCommand {
             stdout: this.#stdoutContents.trimEnd(),
             stderr: this.#stderrContents.trimEnd(),
             output: this.#outputContents.trimEnd(),
-            cmd: this.#executable,
-            cmdArgs: this.#commandArgs,
+            executable: this.#executable,
+            commandArgs: this.#commandArgs,
             cwd: this.#resolvedCwd,
             duration: performance.now() - this.#startTime,
         } as const satisfies FluentCommandSuccess
@@ -83,17 +87,50 @@ export class FluentCommand {
 
     #commandError = () => {
         const metaData: FluentCommandError = this.#commandSuccess()
-        if (this.#code !== undefined) {
+        if (this.#code !== null) {
             metaData.code = this.#code
         }
-        if (this.#signal !== undefined) {
+        if (this.#signal !== null) {
             metaData.signal = this.#signal
         }
         return metaData
     }
 
+    #onChunk = (source: "stdout" | "stderr", chunk: string) => {
+        let handler = this.#stdoutHandler
+        if (source === "stdout") {
+            handler = this.#stdoutHandler
+            this.#stdoutContents += chunk
+        } else if (source === "stderr") {
+            handler = this.#stderrHandler
+            this.#stderrContents += chunk
+        }
+        this.#outputContents += chunk
+
+        if (handler) {
+            handler(chunk)
+        }
+        if (this.#outputHandler) {
+            this.#outputHandler(chunk)
+        }
+
+        if (!this.#shouldBeSilent) {
+            process[source].write(chunk)
+        }
+    }
+
+    #onSpawn = () => {
+        if (this.#spawnHandler) {
+            this.#spawnHandler({
+                executable: this.#executable,
+                commandArgs: this.#commandArgs,
+                cwd: this.#resolvedCwd,
+            })
+        }
+    }
+
     #runOrRead = ResultAsync.fromThrowable(
-        (shouldBeSilent: boolean) =>
+        () =>
             new Promise<FluentCommandSuccess>((resolve, reject) => {
                 this.#startTime = performance.now()
                 this.#resolvedCwd = resolvePath(
@@ -101,6 +138,7 @@ export class FluentCommand {
                     this.#cwdPath,
                     ...this.#extraCwdPathPieces,
                 )
+
                 const proc = spawn(this.#executable, this.#commandArgs, {
                     cwd: this.#resolvedCwd,
                     windowsHide: true,
@@ -108,41 +146,21 @@ export class FluentCommand {
 
                 proc.stdout.setEncoding("utf8")
                 proc.stdout.on("data", (stdoutChunk) => {
-                    this.#stdoutContents += stdoutChunk
-                    if (!shouldBeSilent) {
-                        process.stdout.write(stdoutChunk)
-                    }
-                    if (this.#stdoutHandler) {
-                        this.#stdoutHandler(stdoutChunk)
-                    }
-                    if (this.#outputHandler) {
-                        this.#outputHandler(stdoutChunk)
-                    }
+                    this.#onChunk("stdout", stdoutChunk)
                 })
 
                 proc.stderr.setEncoding("utf8")
                 proc.stderr.on("data", (stderrChunk) => {
-                    this.#stderrContents += stderrChunk
-                    if (!shouldBeSilent) {
-                        process.stderr.write(stderrChunk)
-                    }
-                    if (this.#stderrHandler) {
-                        this.#stderrHandler(stderrChunk)
-                    }
-                    if (this.#outputHandler) {
-                        this.#outputHandler(stderrChunk)
-                    }
+                    this.#onChunk("stderr", stderrChunk)
                 })
+
+                proc.on("spawn", this.#onSpawn)
 
                 proc.on("error", reject)
 
                 proc.on("close", (code, signal) => {
-                    if (code !== null) {
-                        this.#code = code
-                    }
-                    if (signal !== null) {
-                        this.#signal = signal
-                    }
+                    this.#code = code
+                    this.#signal = signal
                     if (code === 0) {
                         resolve(this.#commandSuccess())
                     } else {
@@ -152,17 +170,29 @@ export class FluentCommand {
             }),
         (err) => {
             if (
-                err !== null &&
+                err != null &&
                 typeof err === "object" &&
                 "code" in err &&
                 typeof err.code === "string"
             ) {
                 const error = err as NodeJS.ErrnoException
-                this.#stderrContents += `${error.code}: ${error.message}`
+                this.#code = SPAWN_MISSING_EXE_CODE
+                this.#onChunk("stderr", `${error.code}: ${error.message}`)
             }
             return this.#commandError()
         },
     )
+
+    args = (anArg: string, ...extraArgs: Array<string>) => {
+        this.#addArgs(anArg, ...extraArgs)
+        return this
+    }
+
+    cwd = (cwdPath: string, ...extraCwdPathPieces: Array<string>) => {
+        this.#cwdPath = cwdPath
+        this.#extraCwdPathPieces = extraCwdPathPieces
+        return this
+    }
 
     opt = (optionKey: string, optionValue?: string | number) => {
         this.#addOptionPair(1, optionKey, optionValue)
@@ -174,9 +204,8 @@ export class FluentCommand {
         return this
     }
 
-    cwd = (cwdPath: string, ...extraCwdPathPieces: Array<string>) => {
-        this.#cwdPath = cwdPath
-        this.#extraCwdPathPieces = extraCwdPathPieces
+    onSpawn = (spawnHandler: SpawnHandler) => {
+        this.#spawnHandler = spawnHandler
         return this
     }
 
@@ -195,9 +224,15 @@ export class FluentCommand {
         return this
     }
 
-    run = () => this.#runOrRead(false)
+    run = () => {
+        this.#shouldBeSilent = false
+        return this.#runOrRead()
+    }
 
-    read = () => this.#runOrRead(true)
+    read = () => {
+        this.#shouldBeSilent = true
+        return this.#runOrRead()
+    }
 }
 
 export function fcmd(...args: ConstructorParameters<typeof FluentCommand>) {

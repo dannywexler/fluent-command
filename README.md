@@ -25,16 +25,26 @@ const commandResult = await fcmd("someExecutable", "someArg")
     // adds additional args after the options
     .args("anotherArg", "lastArg")
 
-    // optionally override the cwd of the command
+    // can override the cwd of the command
     .cwd("/some/path")
 
-    // optionally add a listener to stdout
+    // can add a listener to spawn event
+    .onSpawn(spawnInfo => {
+        // the first arg provided to fcmd
+        console.log("Spawned:", spawnInfo.executable)
+        // array of all options and args
+        console.log("With args:", spawnInfo.commandArgs)
+        // resolved cwd of where the command was spawned
+        console.log("In cwd:", spawnInfo.cwd)
+    })
+
+    // can add a listener to stdout
     .onStdout(stdOutChunk => console.log("Got stdout chunk:", stdOutChunk))
 
     // ... or stderr
     .onStderr(stdErrChunk => console.log("Got stderr chunk:", stdErrChunk))
 
-    // ... or output which is stdout and stderr interleaved
+    // ... or output (stdout and stderr interleaved)
     .onOutput(outputChunk => console.log("Got output chunk:", outputChunk))
 
     // Note that each stdout, stderr or output chunk is a utf8 encoded string
@@ -62,10 +72,10 @@ If the command succeeded (exited with code === 0), then `commandResult` is a `Fl
 
 ```ts
 export type FluentCommandSuccess = {
-    cmd: string
-    cmdArgs: Array<string>
+    commandArgs: Array<string>
     cwd: string
     duration: number
+    executable: string
     output: string
     stderr: string
     stdout: string
@@ -76,11 +86,11 @@ or a `FluentCommandError` if the command had an error (exited with code !== 0):
 
 ```ts
 export type FluentCommandError = {
-    cmd: string
-    cmdArgs: Array<string>
     code?: number
+    commandArgs: Array<string>
     cwd: string
     duration: number
+    executable: string
     output: string
     signal?: NodeJS.Signals
     stderr: string
