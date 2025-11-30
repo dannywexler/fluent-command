@@ -1,6 +1,7 @@
 export type {
     FluentCommandError,
     FluentCommandSuccess,
+    OptionRecord,
     OutputHandler,
     SpawnHandler,
     SpawnInfo,

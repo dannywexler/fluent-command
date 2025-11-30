@@ -28,6 +28,8 @@ export type OutputHandler = (output: string) => void
 
 export type SpawnHandler = (spawnInfo: SpawnInfo) => void
 
+export type OptionRecord = Record<string, string | number>
+
 export class FluentCommand {
     #executable: string
     #commandArgs: Array<string>
@@ -65,10 +67,14 @@ export class FluentCommand {
             this.#addArgs(dashedOption)
         }
 
-        if (typeof optionValue === "string" && optionValue.length > 0) {
-            this.#addArgs(optionValue)
-        } else if (typeof optionValue === "number") {
-            this.#addArgs(optionValue.toString())
+        if (optionValue === undefined) {
+            return
+        }
+
+        const trimmedValue = optionValue.toString().trim()
+
+        if (trimmedValue.length > 0) {
+            this.#addArgs(trimmedValue)
         }
     }
 
@@ -194,13 +200,35 @@ export class FluentCommand {
         return this
     }
 
-    opt = (optionKey: string, optionValue?: string | number) => {
-        this.#addOptionPair(1, optionKey, optionValue)
+    opt(optionRecord: OptionRecord): this
+    opt(optionKey: string, optionValue?: string | number): this
+    opt(
+        optionKeyOrRecord: string | OptionRecord,
+        optionValue?: string | number,
+    ) {
+        if (typeof optionKeyOrRecord === "string") {
+            this.#addOptionPair(1, optionKeyOrRecord, optionValue)
+        } else {
+            for (const [key, value] of Object.entries(optionKeyOrRecord)) {
+                this.#addOptionPair(1, key, value)
+            }
+        }
         return this
     }
 
-    option = (optionKey: string, optionValue?: string | number) => {
-        this.#addOptionPair(2, optionKey, optionValue)
+    option(optionRecord: OptionRecord): this
+    option(optionKey: string, optionValue?: string | number): this
+    option(
+        optionKeyOrRecord: string | OptionRecord,
+        optionValue?: string | number,
+    ) {
+        if (typeof optionKeyOrRecord === "string") {
+            this.#addOptionPair(2, optionKeyOrRecord, optionValue)
+        } else {
+            for (const [key, value] of Object.entries(optionKeyOrRecord)) {
+                this.#addOptionPair(2, key, value)
+            }
+        }
         return this
     }
 
