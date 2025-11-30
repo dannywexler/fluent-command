@@ -1,11 +1,8 @@
-export function greet(name: string) {
-    return `Hello ${name}`
-}
-
-if (import.meta.vitest) {
-    const { it, expect } = import.meta.vitest
-
-    it("Can test right in source code", () => {
-        expect(greet("Name")).toEqual("Hello Name")
-    })
-}
+export type {
+    FluentCommandError,
+    FluentCommandSuccess,
+    OutputHandler,
+    SpawnHandler,
+    SpawnInfo,
+} from "./command.ts"
+export { FluentCommand, fcmd, SPAWN_MISSING_EXE_CODE } from "./command.ts"

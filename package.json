@@ -1,6 +1,6 @@
 {
     "name": "fluent-command",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "A fluent TypeScript library for creating and running commands",
     "keywords": [
         "fluent",
